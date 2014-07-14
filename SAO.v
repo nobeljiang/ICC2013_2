@@ -42,7 +42,7 @@ wire din_equa_band_0;
 wire din_equa_band_1;
 wire din_equa_band_2;
 wire din_equa_band_3;
-wire [3:0] bo_offset;
+wire signed [3:0] bo_offset;
 wire [7:0] din_bo;
 
 reg busy;
@@ -52,27 +52,9 @@ wire in_end;
 reg in_en_d;
 
 wire work_enable;
-//reg work_enable;
-
-reg signed [7:0] din_d1;
-reg signed [7:0] din_d2;
-reg signed [7:0] din_d3;
-reg signed [7:0] din_d4;
-reg signed [7:0] din_d5;
-reg signed [7:0] din_d6;
-reg signed [7:0] din_d7;
-reg signed [7:0] din_d8;
-reg signed [7:0] din_d9;
-reg signed [7:0] din_d10;
-reg signed [7:0] din_d11;
-reg signed [7:0] din_d12;
-reg signed [7:0] din_d13;
-reg signed [7:0] din_d14;
-reg signed [7:0] din_d15;
-reg signed [7:0] din_d16;
 reg [7:0] din_d[0:128];
 
-reg [3:0] busy_cnt;
+reg [5:0] busy_cnt;
 reg eo_type;
 reg eo_class;
 reg ver_eo_keep;
@@ -80,6 +62,34 @@ reg hor_eo_keep;
 
 reg [4:0] sao_band_pos_syn;
 reg [15:0] sao_offset_syn;
+
+//EO signal
+wire hor_category1;
+wire hor_category2;
+wire hor_category3;
+wire hor_category4;
+
+wire ver_category1;
+wire ver_category2;
+wire ver_category3;
+wire ver_category4;
+
+wire [3:0] ver_offset;
+wire [3:0] hor_offset;
+wire [3:0] eo_offset;
+wire eo_keep;
+wire [7:0] din_ver;
+wire [7:0] din_hor;
+wire [7:0] din_eo;
+wire [7:0] ver_data_in1;
+wire [7:0] ver_data_in2;
+wire signed [8:0] ver_sub1;
+wire signed [8:0] ver_sub2;
+wire signed [8:0] hor_sub1;
+wire signed [8:0] hor_sub2;
+reg [15:0] eo_offset_syn;
+reg eo_ready_d;
+wire eo_start;
 
 assign lcu_size_16 = (lcu_size == 0);
 assign lcu_size_32 = (lcu_size == 1);
@@ -115,53 +125,26 @@ assign bo_offset = din_equa_band_0 ? sao_offset_syn[15:12] : 0 +
 		   din_equa_band_1 ? sao_offset_syn[11:8] : 0 + 
 		   din_equa_band_2 ? sao_offset_syn[7:4] : 0 + 
 		   din_equa_band_3 ? sao_offset_syn[3:0] : 0 ;
-assign din_bo = din_d[0] + $signed(bo_offset);
+assign din_bo = din_d[0] + {{4{bo_offset[3]}}, bo_offset};
 
 
 assign in_end = in_en_d && !in_en;
 
 
 //EO operation
-wire hor_category1;
-wire hor_category2;
-wire hor_category3;
-wire hor_category4;
-
-wire ver_category1;
-wire ver_category2;
-wire ver_category3;
-wire ver_category4;
-
-wire [3:0] ver_offset;
-wire [3:0] hor_offset;
-wire [3:0] eo_offset;
-wire eo_keep;
-wire [7:0] din_ver;
-wire [7:0] din_hor;
-wire [7:0] din_eo;
-
-wire signed [7:0] ver_sub1;
-wire signed [7:0] ver_sub2;
-wire signed [7:0] hor_sub1;
-wire signed [7:0] hor_sub2;
-reg [15:0] eo_offset_syn;
-assign ver_sub1 = lcu_size_16 ? (din_d[16] - din_d[32]) : 
-		  lcu_size_32 ? (din_d[32] - din_d[64]) :
-		  lcu_size_64 ? (din_d[64] - din_d[128]) : 0;
-assign ver_sub2 = lcu_size_16 ? (din_d[16] - din_d[0]) :
-		  lcu_size_32 ? (din_d[32] - din_d[0]) :
-		  lcu_size_64 ? (din_d[64] - din_d[0]) : 0;
+assign ver_sub1 = ver_data_in1 - ver_data_in2;
+assign ver_sub2 = ver_data_in1 - din_d[0];
 
 assign hor_sub1 = din_d[2] - din_d[3]; 
 assign hor_sub2 = din_d[2] - din_d[1];
 
-assign hor_category1 = hor_sub1[7] && hor_sub2[7];
-assign hor_category2 = (hor_sub1[7] && (hor_sub2 == 0)) || (hor_sub2[7] && (hor_sub1 == 0));
+assign hor_category1 = hor_sub1[8] && hor_sub2[8];
+assign hor_category2 = (hor_sub1[8] && (hor_sub2 == 0)) || (hor_sub2[8] && (hor_sub1 == 0));
 assign hor_category3 = ((hor_sub1 > 0) && (hor_sub2 == 0)) || ((hor_sub2 > 0) && (hor_sub1 == 0));
 assign hor_category4 = (hor_sub1 > 0) && (hor_sub2 > 0);
 
-assign ver_category1 = ver_sub1[7] && ver_sub2[7];
-assign ver_category2 = (ver_sub1[7] && (ver_sub2 == 0)) || (ver_sub2[7] && (ver_sub1 == 0)); 
+assign ver_category1 = ver_sub1[8] && ver_sub2[8];
+assign ver_category2 = (ver_sub1[8] && (ver_sub2 == 0)) || (ver_sub2[8] && (ver_sub1 == 0)); 
 assign ver_category3 = ((ver_sub1 > 0) && (ver_sub2 == 0)) || ((ver_sub2 > 0) && (ver_sub1 == 0)); 
 assign ver_category4 = (ver_sub1 > 0) && (ver_sub2 > 0);
 
@@ -175,9 +158,15 @@ assign hor_offset = hor_category1 ? eo_offset_syn[15:12] : 0 +
 		    hor_category3 ? eo_offset_syn[7:4] : 0 +
 		    hor_category4 ? eo_offset_syn[3:0] : 0;
 assign eo_keep = eo_class ? ver_eo_keep : hor_eo_keep;
+assign ver_data_in1 = lcu_size_16 ? din_d[16] :
+		      lcu_size_32 ? din_d[32] :
+		      lcu_size_64 ? din_d[64] : 0;
+assign ver_data_in2 = lcu_size_16 ? din_d[32] :
+		      lcu_size_32 ? din_d[64] :
+		      lcu_size_64 ? din_d[128] : 0;
 
-assign din_ver = eo_keep ? din_d[16] : (din_d[16] + $signed(ver_offset));
-assign din_hor = eo_keep ? din_d[2] : (din_d[2] + $signed(hor_offset));
+assign din_ver = eo_keep ? ver_data_in1 : (ver_data_in1 + {{4{ver_offset[3]}}, ver_offset});
+assign din_hor = eo_keep ? din_d[2] : (din_d[2] + {{4{hor_offset[3]}}, hor_offset});
 
 
 assign din_eo = eo_class ? din_ver : din_hor;
@@ -188,6 +177,15 @@ wire [7:0] test3 = din_d[32];
 wire [7:0] test4 = din_d[1];
 wire [7:0] test5 = din_d[2];
 wire [7:0] test6 = din_d[3];
+reg [7:0] tmp;
+
+always@(posedge clk or posedge reset)
+	if(reset)
+		tmp <= 0;
+	else
+		tmp <= din;
+
+
 always@(posedge clk or posedge reset)
 	if(reset)
 		din_d[0] <= 0;
@@ -199,6 +197,10 @@ always@(posedge clk or posedge reset)
 		hor_eo_keep <= 0;
 	else if(lcu_size_16 && ((lcu_label_16 && !work_enable) || (pixel_num[3:0] == 4'he) || (pixel_num[3:0] == 4'hd)))
 		hor_eo_keep <= 1;
+	else if(lcu_size_32 && ((lcu_label_32 && !work_enable) || (pixel_num[4:0] == 5'h1e) || (pixel_num[4:0] == 5'h1d)))
+		hor_eo_keep <= 1;
+	else if(lcu_size_64 && ((lcu_label_64 && !work_enable) || (pixel_num[5:0] == 6'h3e) || (pixel_num[5:0] == 6'h3d)))
+		hor_eo_keep <= 1;
 	else 
 		hor_eo_keep <= 0;
 
@@ -207,7 +209,15 @@ always@(posedge clk or posedge reset)
 		ver_eo_keep <= 0;
 	else if(lcu_size_16 && (lcu_label_16 || ((pixel_num[10:7] == 4'he) && (pixel_num[3:0] == 4'he))))
 		ver_eo_keep <= 1;
+	else if(lcu_size_32 && (lcu_label_32 || ((pixel_num[11:7] == 5'h1e) && (pixel_num[4:0] == 5'h1e))))
+		ver_eo_keep <= 1;
+	else if(lcu_size_64 && (lcu_label_64 || ((pixel_num[12:7] == 6'h3e) && (pixel_num[5:0] == 6'h3e))))
+		ver_eo_keep <= 1;
 	else if(lcu_size_16 && (pixel_num[3:0] == 4'he))
+		ver_eo_keep <= 0;
+	else if(lcu_size_32 && (pixel_num[4:0] == 5'h1e))
+		ver_eo_keep <= 0;
+	else if(lcu_size_64 && (pixel_num[5:0] == 6'h3e))
 		ver_eo_keep <= 0;
 
 
@@ -226,10 +236,21 @@ endgenerate
 reg [6:0] eo_counter;
 reg eo_ready;
 reg busy_d;
+
+assign eo_start = eo_ready && !eo_ready_d;
+always@(posedge clk or posedge reset)
+	if(reset)
+		eo_ready_d <= 0;
+	else
+		eo_ready_d <= eo_ready;
+
+
 always@(posedge clk or posedge reset)
 	if(reset)
 		eo_counter <= 0;
-	else if(|eo_counter)
+	else if(eo_start)
+		eo_counter <= 0;
+	else if(!eo_ready && (|eo_counter))
 		eo_counter <= eo_counter + 1;
 	else if(sao_eo && (lcu_label_16 || lcu_label_32 || lcu_label_64))
 		eo_counter <= 1;
@@ -238,12 +259,16 @@ always@(posedge clk or posedge reset)
 always@(posedge clk or posedge reset)
 	if(reset)
 		eo_ready <= 0;
-	else if(sao_eo_class && (eo_counter == 7'hf))
+	else if(busy_d && !busy)
+		eo_ready <= 0;
+	else if(sao_eo_class && lcu_size_16 && (eo_counter == 7'hf))
+		eo_ready <= 1;
+	else if(sao_eo_class && lcu_size_32 && (eo_counter == 7'h1f))
+		eo_ready <= 1;
+	else if(sao_eo_class && lcu_size_64 && (eo_counter == 7'h3f))
 		eo_ready <= 1;
 	else if(!sao_eo_class && (eo_counter == 7'h1))
 		eo_ready <= 1;
-	else if(busy_d && !busy)
-		eo_ready <= 0;
 
 always@(posedge clk or posedge reset)
 	if(reset)
@@ -292,7 +317,19 @@ always@(posedge clk or posedge reset)
 		busy <= 1;
 	else if(!eo_class & eo_type && lcu_size_16 && (sao_counter[7:0] == 8'b11111100)) 
 		busy <= 1;
-	else if(eo_class && (busy_cnt == 4'hf))
+	else if(eo_class & eo_type && lcu_size_32 && (sao_counter[9:0] == 10'b1111011110)) 
+		busy <= 1;
+	else if(!eo_class & eo_type && lcu_size_32 && (sao_counter[9:0] == 10'b1111111100)) 
+		busy <= 1;
+	else if(eo_class & eo_type && lcu_size_64 && (sao_counter[11:0] == 12'b111110111110)) 
+		busy <= 1;
+	else if(!eo_class & eo_type && lcu_size_64 && (sao_counter[11:0] == 12'b111111111100)) 
+		busy <= 1;
+	else if(eo_class && lcu_size_16 && (busy_cnt == 4'hf))
+		busy <= 0;
+	else if(eo_class && lcu_size_32 && (busy_cnt == 5'h1f))
+		busy <= 0;
+	else if(eo_class && lcu_size_64 && (busy_cnt == 6'h3f))
 		busy <= 0;
 	else if(!eo_class && (busy_cnt == 4'h1))
 		busy <= 0;
@@ -322,14 +359,8 @@ always@(posedge clk or posedge reset)
 		sao_eo <= 0;
 
 assign work_enable = sao_off || sao_bo || eo_ready;
-/*always@(posedge clk or posedge reset)
-	if(reset)
-		work_enable <= 0;
-	else if(sao_off || sao_bo || eo_ready)
-		work_enable <= 1;
-	else
-		work_enable <= 0;
-*/
+
+
 always@(posedge clk or posedge reset)
 	if(reset)
 		in_en_d <= 0;
@@ -341,7 +372,7 @@ always@(posedge clk or posedge reset)
 		finish <= 0;
 	else if(finish)
 		finish <= 0;
-	else if(in_end)
+	else if(pixel_num == 14'd16383)
 		finish <= 1;
 
 always@(posedge clk or posedge reset)
@@ -369,10 +400,12 @@ always@(posedge clk or posedge reset)
 always@(posedge clk or posedge reset)
 	if(reset)
 		pixel_num <= 0;
-	else if(!in_en)
-		pixel_num <= 0;
-	else if(lcu_label_16 || lcu_label_32 || lcu_label_64)
+	else if(lcu_label_16) 
 		pixel_num <= (lcu_x << 4) + (lcu_y << 11);
+	else if(lcu_label_32) 
+		pixel_num <= (lcu_x << 5) + (lcu_y << 12);
+	else if(lcu_label_64)
+		pixel_num <= (lcu_x << 6) + (lcu_y << 13);
 	else if(lcu_size_16 && (sao_counter[3:0] == 4'h0))
 		pixel_num <= pixel_num + 113;
 	else if(lcu_size_32 && (sao_counter[4:0] == 5'h00))
